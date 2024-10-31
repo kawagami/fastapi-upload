@@ -11,14 +11,24 @@ firebase_admin.initialize_app(cred, {
 
 app = FastAPI()
 
+# 定義 MIME 類型和副檔名的對應
+mime_type_extension = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif"
+}
+
 @app.post("/upload-image/")
 async def upload_image(file: UploadFile = File(...)):
     try:
         # 讀取上傳的圖片檔案
         image_data = await file.read()
 
-        # 生成唯一的檔案名稱
-        file_name = f"fastapi-upload/{uuid4()}.jpg"
+        # 根據 MIME 類型取得副檔名
+        file_extension = mime_type_extension.get(file.content_type, ".png")
+        
+        # 生成唯一的檔案名稱，包含正確的副檔名
+        file_name = f"fastapi-upload/{uuid4()}{file_extension}"
 
         # 將檔案上傳到 Firebase Storage
         bucket = storage.bucket()
