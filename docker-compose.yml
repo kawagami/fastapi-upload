@@ -1,0 +1,7 @@
+services:
+  fastapi-upload:
+    image: kawagami77/fastapi-upload:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./firebase-adminsdk.json:/app/firebase-adminsdk.json

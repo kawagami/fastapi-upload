@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t fastapi-upload:latest .
+docker build -t kawagami77/fastapi-upload:latest .
