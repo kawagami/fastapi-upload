@@ -4,7 +4,7 @@ from firebase_admin import credentials, storage
 from uuid import uuid4
 
 # 初始化 Firebase Admin SDK
-cred = credentials.Certificate("/app/firebase-adminsdk.json")
+cred = credentials.Certificate("/app/my-credentials.json")
 firebase_admin.initialize_app(cred, {
     'storageBucket': 'fir-test-a67eb.appspot.com'
 })
@@ -18,7 +18,7 @@ mime_type_extension = {
     "image/gif": ".gif"
 }
 
-@app.post("/upload-image/")
+@app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     try:
         # 讀取上傳的圖片檔案

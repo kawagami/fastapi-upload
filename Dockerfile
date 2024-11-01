@@ -7,7 +7,6 @@ WORKDIR /app
 # 複製所需的檔案
 COPY requirements.txt .
 COPY app/ /app/
-# COPY firebase-adminsdk.json /app/firebase-adminsdk.json
 
 # 安裝依賴
 RUN pip install --no-cache-dir -r requirements.txt

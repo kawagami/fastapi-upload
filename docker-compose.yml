@@ -4,4 +4,4 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./firebase-adminsdk.json:/app/firebase-adminsdk.json
+      - ./my-credentials.json:/app/my-credentials.json
