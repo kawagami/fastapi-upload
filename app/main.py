@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 import firebase_admin
 from firebase_admin import credentials, storage
 from uuid import uuid4
@@ -40,6 +40,42 @@ async def upload_image(file: UploadFile = File(...)):
         image_url = blob.public_url
 
         return {"image_url": image_url}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/list-images")
+def list_images():
+    try:
+        # 列出所有檔案
+        bucket = storage.bucket()
+        blobs = bucket.list_blobs(prefix="fastapi-upload/")  # 僅列出特定前綴的檔案
+        
+        # 收集檔案名稱和公開 URL
+        files = []
+        for blob in blobs:
+            files.append({
+                "name": blob.name,
+                "url": blob.public_url
+            })
+
+        return {"files": files}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/delete-image/{file_name}")
+def delete_image(file_name: str):
+    try:
+        # 刪除指定檔案
+        bucket = storage.bucket()
+        blob = bucket.blob(file_name)
+
+        if not blob.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        blob.delete()
+        return {"message": f"File '{file_name}' deleted successfully"}
 
     except Exception as e:
         return {"error": str(e)}
