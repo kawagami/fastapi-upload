@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 import firebase_admin
 from firebase_admin import credentials, storage
 from uuid import uuid4
+from pydantic import BaseModel
 
 # 初始化 Firebase Admin SDK
 cred = credentials.Certificate("/app/my-credentials.json")
@@ -64,9 +65,16 @@ def list_images():
     except Exception as e:
         return {"error": str(e)}
 
-@app.delete("/delete-image/{file_name}")
-def delete_image(file_name: str):
+# 定義請求體的格式
+class DeleteImageRequest(BaseModel):
+    file_name: str  # 要刪除的檔案名稱
+
+@app.delete("/delete-image")
+def delete_image(request: DeleteImageRequest):
     try:
+        # 取得檔案名稱
+        file_name = request.file_name
+
         # 刪除指定檔案
         bucket = storage.bucket()
         blob = bucket.blob(file_name)
