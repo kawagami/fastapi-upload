@@ -40,7 +40,11 @@ async def upload_image(file: UploadFile = File(...)):
         blob.make_public()
         image_url = blob.public_url
 
-        return {"image_url": image_url}
+        # 返回與 /list-images 一致的結構
+        return {
+            "name": file_name,
+            "url": image_url
+        }
 
     except Exception as e:
         return {"error": str(e)}
