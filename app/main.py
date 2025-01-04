@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, storage
 from uuid import uuid4
 from pydantic import BaseModel
+from opencc import OpenCC
 
 # 初始化 Firebase Admin SDK
 cred = credentials.Certificate("/app/my-credentials.json")
@@ -89,5 +90,21 @@ def delete_image(request: DeleteImageRequest):
         blob.delete()
         return {"message": f"File '{file_name}' deleted successfully"}
 
+    except Exception as e:
+        return {"error": str(e)}
+
+# 定義簡體轉繁體的請求體結構
+class ConvertTextRequest(BaseModel):
+    text: str  # 要轉換的簡體中文文本
+
+# 初始化 OpenCC
+opencc = OpenCC("s2t.json")  # 簡體轉繁體
+
+@app.post("/convert-text")
+def convert_text(request: ConvertTextRequest):
+    try:
+        # 使用 OpenCC 進行文本轉換
+        converted_text = opencc.convert(request.text)
+        return {"original_text": request.text, "converted_text": converted_text}
     except Exception as e:
         return {"error": str(e)}
