@@ -4,6 +4,8 @@ from firebase_admin import credentials, storage
 from uuid import uuid4
 from pydantic import BaseModel
 from opencc import OpenCC
+import requests
+import time
 
 # 初始化 Firebase Admin SDK
 cred = credentials.Certificate("/app/my-credentials.json")
@@ -108,3 +110,64 @@ def convert_text(request: ConvertTextRequest):
         return {"original_text": request.text, "converted_text": converted_text}
     except Exception as e:
         return {"error": str(e)}
+
+class StockRequest(BaseModel):
+    stock_no: str
+    start_date: str
+    end_date: str
+
+def convert_to_ad_date(roc_date: str) -> str:
+    """將民國年月日 (ex: 1130315) 轉換為西元年月日 (ex: 20240315)"""
+    year = int(roc_date[:3]) + 1911
+    return f"{year}{roc_date[3:]}"
+
+def fetch_stock_price(stock_no: str, roc_date: str, max_retries=2, backoff_factor=2) -> float:
+    """查詢指定日期的股票收盤價，若該日無交易，則回傳最近的交易日收盤價"""
+    ad_date = convert_to_ad_date(roc_date)
+    query_month = ad_date[:6] + "01"  # 查詢當月數據
+
+    url = "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_AVG"
+    params = {"date": query_month, "stockNo": stock_no, "response": "json"}
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data["stat"] == "OK":
+                price_dict = {item[0]: float(item[1]) for item in data["data"] if "月平均收盤價" not in item[0]}
+                target_date_formatted = f"{roc_date[:3]}/{roc_date[3:5]}/{roc_date[5:]}"
+                
+                if target_date_formatted in price_dict:
+                    return price_dict[target_date_formatted]
+                
+                sorted_dates = sorted(price_dict.keys(), reverse=True)
+                for trade_date in sorted_dates:
+                    if trade_date <= target_date_formatted:
+                        return price_dict[trade_date]
+
+            return None
+
+        except requests.exceptions.RequestException as e:
+            time.sleep(backoff_factor ** attempt)
+    
+    return None
+
+@app.post("/stock-change")
+def calculate_stock_change(request: StockRequest):
+    start_price = fetch_stock_price(request.stock_no, request.start_date)
+    end_price = fetch_stock_price(request.stock_no, request.end_date)
+
+    if start_price is None or end_price is None:
+        raise HTTPException(status_code=400, detail="無法取得完整的股票數據，請確認輸入的日期是否有效")
+    
+    change = ((end_price - start_price) / start_price) * 100
+    return {
+        "stock_no": request.stock_no,
+        "start_date": request.start_date,
+        "start_price": round(start_price, 2),
+        "end_date": request.end_date,
+        "end_price": round(end_price, 2),
+        "change": round(change, 2)
+    }
