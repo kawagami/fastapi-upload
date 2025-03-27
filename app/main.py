@@ -136,7 +136,7 @@ def fetch_stock_price(stock_no: str, roc_date: str, max_retries=2, backoff_facto
             data = response.json()
 
             if data["stat"] == "OK":
-                price_dict = {item[0]: float(item[1]) for item in data["data"] if "月平均收盤價" not in item[0]}
+                price_dict = {item[0]: float(item[1]) for item in data["data"] if "月平均收盤價" not in item[0] and item[1] != "--"}
                 target_date_formatted = f"{roc_date[:3]}/{roc_date[3:5]}/{roc_date[5:]}"
                 
                 if target_date_formatted in price_dict:
