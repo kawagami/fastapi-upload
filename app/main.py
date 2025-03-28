@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from opencc import OpenCC
 import requests
 import time
+import re
 
 # 初始化 Firebase Admin SDK
 cred = credentials.Certificate("/app/my-credentials.json")
@@ -121,8 +122,8 @@ def convert_to_ad_date(roc_date: str) -> str:
     year = int(roc_date[:3]) + 1911
     return f"{year}{roc_date[3:]}"
 
-def fetch_stock_price(stock_no: str, roc_date: str, max_retries=2, backoff_factor=2) -> float:
-    """查詢指定日期的股票收盤價，若該日無交易，則回傳最近的交易日收盤價"""
+def fetch_stock_price(stock_no: str, roc_date: str, max_retries=2, backoff_factor=2):
+    """查詢指定日期的股票收盤價，並回傳 (收盤價, 股票名稱)"""
     ad_date = convert_to_ad_date(roc_date)
     query_month = ad_date[:6] + "01"  # 查詢當月數據
 
@@ -136,35 +137,46 @@ def fetch_stock_price(stock_no: str, roc_date: str, max_retries=2, backoff_facto
             data = response.json()
 
             if data["stat"] == "OK":
-                price_dict = {item[0]: float(item[1]) for item in data["data"] if "月平均收盤價" not in item[0] and item[1] != "--"}
+                # 從 title 解析出 "3055 蔚華科" 這部分
+                title_match = re.search(rf"{stock_no} (\S+)", data["title"])
+                stock_name = title_match.group(1) if title_match else "未知公司"
+
+                # 解析日期對應的收盤價
+                price_dict = {
+                    item[0]: float(item[1])
+                    for item in data["data"]
+                    if "月平均收盤價" not in item[0] and item[1] != "--"
+                }
                 target_date_formatted = f"{roc_date[:3]}/{roc_date[3:5]}/{roc_date[5:]}"
                 
                 if target_date_formatted in price_dict:
-                    return price_dict[target_date_formatted]
-                
+                    return price_dict[target_date_formatted], stock_name
+
+                # 若無當日交易價格，找最近的
                 sorted_dates = sorted(price_dict.keys(), reverse=True)
                 for trade_date in sorted_dates:
                     if trade_date <= target_date_formatted:
-                        return price_dict[trade_date]
+                        return price_dict[trade_date], stock_name
 
-            return None
+            return None, "未知公司"
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             time.sleep(backoff_factor ** attempt)
-    
-    return None
+
+    return None, "未知公司"
 
 @app.post("/stock-change")
 def calculate_stock_change(request: StockRequest):
-    start_price = fetch_stock_price(request.stock_no, request.start_date)
-    end_price = fetch_stock_price(request.stock_no, request.end_date)
+    start_price, stock_name = fetch_stock_price(request.stock_no, request.start_date)
+    end_price, _ = fetch_stock_price(request.stock_no, request.end_date)
 
     if start_price is None or end_price is None:
         raise HTTPException(status_code=400, detail="無法取得完整的股票數據，請確認輸入的日期是否有效")
-    
+
     change = ((end_price - start_price) / start_price) * 100
     return {
         "stock_no": request.stock_no,
+        "stock_name": stock_name,  # 直接從 title 解析名稱
         "start_date": request.start_date,
         "start_price": round(start_price, 2),
         "end_date": request.end_date,
