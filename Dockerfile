@@ -1,4 +1,4 @@
-FROM python:3.13.5-slim
+FROM python:3.9-slim
 
 # 設定工作目錄
 WORKDIR /app
