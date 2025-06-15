@@ -1,5 +1,5 @@
-# 基於 Python 3.13-slim-bookworm 映像
-FROM python:3.13-slim-bookworm
+# 基於 Python 3.9 映像
+FROM python:3.9-slim
 
 # 設定工作目錄
 WORKDIR /app
